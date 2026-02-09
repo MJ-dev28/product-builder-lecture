@@ -176,3 +176,15 @@ h1 {
 .form-container button[type="submit"]:hover {
     background-color: var(--button-hover-bg-color);
 }
+
+/* Disqus comments styling */
+#disqus_thread {
+    width: 100%;
+    max-width: 800px; /* Adjust as needed */
+    margin: 40px auto; /* Center it and add vertical spacing */
+    background-color: var(--container-bg-color); /* Use existing theme variable */
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px var(--box-shadow-color);
+    min-height: 300px; /* Ensure enough space for the comments to load */
+}
