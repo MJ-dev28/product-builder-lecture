@@ -26,11 +26,28 @@ body {
     font-family: 'Arial', sans-serif;
     background-color: var(--bg-color);
     display: flex;
+    flex-direction: column; /* Stack children vertically */
     justify-content: center;
-    align-items: center;
-    height: 100vh;
+    align-items: center; /* Center horizontally */
+    min-height: 100vh; /* Use min-height to allow content to extend beyond viewport */
     margin: 0;
     transition: background-color 0.3s ease;
+}
+
+.main-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1; /* Allow this wrapper to take up available space */
+}
+
+.form-container {
+    margin-top: auto; /* Pushes the form to the bottom */
+    margin-bottom: 20px; /* Add some space from the bottom */
+    padding: 30px;
+    max-width: 500px;
+    width: 90%; /* Adjust width for better responsiveness */
 }
 
 .container {
