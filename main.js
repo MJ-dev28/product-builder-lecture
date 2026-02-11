@@ -64,27 +64,23 @@ async function initLatestLotto() {
         const diff = now - firstDate;
         const round = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1 - offset;
 
-        // 시도할 프록시 목록 (CORS 우회)
         const targetUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`;
-        const proxyUrls = [
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
-        ];
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+
+        console.log(`Fetching round ${round} using proxy: ${proxyUrl}, attempt: ${offset + 1}`);
 
         try {
-            // 현재 순서에 맞는 프록시 선택
-            const url = proxyUrls[offset % proxyUrls.length];
-            const response = await fetch(url);
+            const response = await fetch(proxyUrl);
             
-            if (!response.ok) throw new Error('Network response was not ok');
-
-            let data;
-            if (url.includes('allorigins')) {
-                const result = await response.json();
-                data = JSON.parse(result.contents);
-            } else {
-                data = await response.json();
+            if (!response.ok) {
+                console.error(`Network response not ok for round ${round}, status: ${response.status}`);
+                throw new Error(`Network response was not ok, status: ${response.status}`);
             }
+
+            const result = await response.json();
+            console.log(`Raw proxy response for round ${round}:`, result);
+            const data = JSON.parse(result.contents);
+            console.log(`Parsed lottery data for round ${round}:`, data);
 
             if (data && data.returnValue === "success") {
                 document.getElementById('draw-round').innerText = `제 ${data.drwNo}회`;
@@ -95,11 +91,12 @@ async function initLatestLotto() {
                 container.innerHTML += `<span class="plus-sign">+</span>`;
                 container.innerHTML += `<div class="ball ${getRangeClass(data.bnusNo)}">${data.bnusNo}</div>`;
             } else {
+                console.warn(`Lottery API returned non-success for round ${round}:`, data);
                 // 이번 주 데이터가 아직 없거나 success가 아니면 재시도
                 fetchLotto(offset + 1);
             }
         } catch (err) {
-            console.warn(`Attempt ${offset + 1} failed:`, err);
+            console.error(`Attempt ${offset + 1} failed for round ${round}:`, err);
             fetchLotto(offset + 1);
         }
     };
