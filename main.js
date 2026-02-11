@@ -65,21 +65,33 @@ async function initLatestLotto() {
         const round = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1 - offset;
 
         const targetUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+        // 시도할 프록시 목록 (CORS 우회)
+        const proxyUrls = [
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+        ];
+        // 현재 순서에 맞는 프록시 선택
+        const url = proxyUrls[offset % proxyUrls.length];
 
-        console.log(`Fetching round ${round} using proxy: ${proxyUrl}, attempt: ${offset + 1}`);
+        console.log(`Fetching round ${round} using proxy: ${url}, attempt: ${offset + 1}`);
 
         try {
-            const response = await fetch(proxyUrl);
+            const response = await fetch(url);
             
             if (!response.ok) {
-                console.error(`Network response not ok for round ${round}, status: ${response.status}`);
+                console.error(`Network response not ok for round ${round}, status: ${response.status} from ${url}`);
                 throw new Error(`Network response was not ok, status: ${response.status}`);
             }
 
-            const result = await response.json();
-            console.log(`Raw proxy response for round ${round}:`, result);
-            const data = JSON.parse(result.contents);
+            let data;
+            if (url.includes('allorigins')) {
+                const result = await response.json();
+                console.log(`Raw allorigins proxy response for round ${round}:`, result);
+                data = JSON.parse(result.contents);
+            } else { // Assuming corsproxy.io directly returns JSON
+                data = await response.json();
+                console.log(`Raw corsproxy proxy response for round ${round}:`, data);
+            }
             console.log(`Parsed lottery data for round ${round}:`, data);
 
             if (data && data.returnValue === "success") {
