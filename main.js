@@ -1,7 +1,7 @@
 const generateBtn = document.getElementById('generate-btn');
 const numberElements = document.querySelectorAll('.number');
 const themeToggleBtn = document.getElementById('theme-toggle');
-const htmlElement = document.getElementById('app-html');
+const htmlElement = document.documentElement;
 
 function generateNumbers() {
     const numbers = new Set();
@@ -50,39 +50,61 @@ themeToggleBtn.addEventListener('click', toggleTheme);
 displayNumbers();
 
 async function initLatestLotto() {
-    // 1. 최신 회차 계산 (1회: 2002-12-07 20:45)
-    const getLatestRound = () => {
+    const container = document.getElementById('draw-numbers');
+    
+    const fetchLotto = async (offset = 0) => {
+        // 3번 이상 실패하면 포기
+        if (offset > 2) {
+            container.innerHTML = '<p style="color:#ff7272">데이터 점검 중 (잠시 후 다시 시도)</p>';
+            return;
+        }
+
         const firstDate = new Date('2002-12-07T20:45:00');
         const now = new Date();
         const diff = now - firstDate;
-        return Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1;
+        const round = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1 - offset;
+
+        // 시도할 프록시 목록 (CORS 우회)
+        const targetUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`;
+        const proxyUrls = [
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+        ];
+
+        try {
+            // 현재 순서에 맞는 프록시 선택
+            const url = proxyUrls[offset % proxyUrls.length];
+            const response = await fetch(url);
+            
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            let data;
+            if (url.includes('allorigins')) {
+                const result = await response.json();
+                data = JSON.parse(result.contents);
+            } else {
+                data = await response.json();
+            }
+
+            if (data && data.returnValue === "success") {
+                document.getElementById('draw-round').innerText = `제 ${data.drwNo}회`;
+                document.getElementById('draw-date').innerText = `(${data.drwNoDate})`;
+
+                const nums = [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6];
+                container.innerHTML = nums.map(n => `<div class="ball ${getRangeClass(n)}">${n}</div>`).join('');
+                container.innerHTML += `<span class="plus-sign">+</span>`;
+                container.innerHTML += `<div class="ball ${getRangeClass(data.bnusNo)}">${data.bnusNo}</div>`;
+            } else {
+                // 이번 주 데이터가 아직 없거나 success가 아니면 재시도
+                fetchLotto(offset + 1);
+            }
+        } catch (err) {
+            console.warn(`Attempt ${offset + 1} failed:`, err);
+            fetchLotto(offset + 1);
+        }
     };
 
-    const round = getLatestRound();
-    const container = document.getElementById('draw-numbers');
-
-    try {
-        // 2. CORS 우회를 위한 프록시 API 사용
-        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=' + round)}`);
-        const result = await response.json();
-        const data = JSON.parse(result.contents);
-
-        if (data.returnValue === "success") {
-            // 헤더 정보 업데이트
-            document.getElementById('draw-round').innerText = `제 ${data.drwNo}회`;
-            document.getElementById('draw-date').innerText = data.drwNoDate;
-
-            // 번호 배열 생성
-            const nums = [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6];
-            
-            // 공 렌더링
-            container.innerHTML = nums.map(n => `<div class="ball ${getRangeClass(n)}">${n}</div>`).join('');
-            container.innerHTML += `<span class="plus-sign">+</span>`;
-            container.innerHTML += `<div class="ball ${getRangeClass(data.bnusNo)}">${data.bnusNo}</div>`;
-        }
-    } catch (err) {
-        container.innerHTML = '<p style="color:#ff7272">데이터를 불러올 수 없습니다.</p>';
-    }
+    fetchLotto(0);
 }
 
 function getRangeClass(n) {
