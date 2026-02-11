@@ -188,3 +188,49 @@ h1 {
     box-shadow: 0 4px 8px var(--box-shadow-color);
     min-height: 300px; /* Ensure enough space for the comments to load */
 }
+
+/* 최신 당첨 번호 섹션 스타일 */
+.draw-container {
+    background: var(--bg-card, #ffffff); /* 테마 대응 */
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    margin-bottom: 25px;
+    text-align: center;
+    border: 1px solid #eee;
+}
+
+.draw-header { margin-bottom: 15px; }
+.round-badge {
+    background: #ff7272;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    margin-right: 8px;
+}
+.draw-date { color: #888; font-size: 0.85rem; }
+
+.ball-container { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    gap: 10px; 
+    flex-wrap: wrap;
+}
+
+.ball {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: bold; font-size: 1rem;
+    box-shadow: inset -2px -2px 4px rgba(0,0,0,0.2);
+}
+
+/* 번호대별 색상 */
+.ball.range-1 { background: #fbc400; }
+.ball.range-11 { background: #69c8f2; }
+.ball.range-21 { background: #ff7272; }
+.ball.range-31 { background: #aaaaaa; }
+.ball.range-41 { background: #b0d840; }
+.plus-sign { font-size: 20px; color: #ccc; font-weight: bold; }
