@@ -1,128 +1,122 @@
-const generateBtn = document.getElementById('generate-btn');
-const numberElements = document.querySelectorAll('.number');
-const themeToggleBtn = document.getElementById('theme-toggle');
-const htmlElement = document.documentElement;
+// Teachable Machine Model URL - Replace with your own model URL
+const URL = "https://teachablemachine.withgoogle.com/models/p-vS89T2j/";
 
-function generateNumbers() {
-    const numbers = new Set();
-    while (numbers.size < 6) {
-        const randomNumber = Math.floor(Math.random() * 45) + 1;
-        numbers.add(randomNumber);
+let model, labelContainer, maxPredictions;
+
+const imageInput = document.getElementById('image-input');
+const uploadBtn = document.getElementById('upload-btn');
+const faceImage = document.getElementById('face-image');
+const uploadLabel = document.getElementById('upload-label');
+const imageUploadArea = document.getElementById('image-upload-area');
+const loadingContainer = document.getElementById('loading-container');
+const resultContainer = document.getElementById('result-container');
+const resultTitle = document.getElementById('result-title');
+const labelContainerElement = document.getElementById('label-container');
+const retryBtn = document.getElementById('retry-btn');
+
+// Load the image model and setup the UI
+async function init() {
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
+
+    // Load the model and metadata
+    try {
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+        console.log("Model loaded successfully");
+    } catch (e) {
+        console.error("Failed to load model", e);
+        alert("모델을 불러오는데 실패했습니다. URL을 확인해주세요.");
     }
-    return Array.from(numbers);
 }
 
-function displayNumbers() {
-    const generatedNumbers = generateNumbers();
-    numberElements.forEach((element, index) => {
-        element.textContent = generatedNumbers[index];
-    });
-}
+// Handle image upload and prediction
+async function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-function toggleTheme() {
-    if (htmlElement.classList.contains('dark-mode')) {
-        htmlElement.classList.remove('dark-mode');
-        localStorage.setItem('theme', 'light');
-    } else {
-        htmlElement.classList.add('dark-mode');
-        localStorage.setItem('theme', 'dark');
-    }
-}
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        // Show image preview
+        faceImage.src = e.target.result;
+        faceImage.classList.remove('hidden');
+        uploadLabel.classList.add('hidden');
+        
+        // Show loading state
+        loadingContainer.classList.remove('hidden');
+        resultContainer.classList.add('hidden');
 
-// Set initial theme based on localStorage or system preference
-const savedTheme = localStorage.getItem('theme');
-if (savedTheme) {
-    if (savedTheme === 'dark') {
-        htmlElement.classList.add('dark-mode');
-    }
-} else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    // If no saved theme, check system preference
-    htmlElement.classList.add('dark-mode');
-    localStorage.setItem('theme', 'dark');
-} else {
-    localStorage.setItem('theme', 'light');
-}
-
-generateBtn.addEventListener('click', displayNumbers);
-themeToggleBtn.addEventListener('click', toggleTheme);
-
-// Initial generation
-displayNumbers();
-
-async function initLatestLotto() {
-    const container = document.getElementById('draw-numbers');
-    
-    const fetchLotto = async (offset = 0) => {
-        // 3번 이상 실패하면 포기
-        if (offset > 2) {
-            container.innerHTML = '<p style="color:#ff7272">데이터 점검 중 (잠시 후 다시 시도)</p>';
-            return;
-        }
-
-        const firstDate = new Date('2002-12-07T20:45:00');
-        const now = new Date();
-        const diff = now - firstDate;
-        const round = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1 - offset;
-
-        const targetUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`;
-        // 시도할 프록시 목록 (CORS 우회)
-        const proxyUrls = [
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
-        ];
-        // 현재 순서에 맞는 프록시 선택
-        const url = proxyUrls[offset % proxyUrls.length];
-
-        console.log(`Fetching round ${round} using proxy: ${url}, attempt: ${offset + 1}`);
-
-        try {
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                console.error(`Network response not ok for round ${round}, status: ${response.status} from ${url}`);
-                throw new Error(`Network response was not ok, status: ${response.status}`);
-            }
-
-            let data;
-            if (url.includes('allorigins')) {
-                const result = await response.json();
-                console.log(`Raw allorigins proxy response for round ${round}:`, result);
-                data = JSON.parse(result.contents);
-            } else { // Assuming corsproxy.io directly returns JSON
-                data = await response.json();
-                console.log(`Raw corsproxy proxy response for round ${round}:`, data);
-            }
-            console.log(`Parsed lottery data for round ${round}:`, data);
-
-            if (data && data.returnValue === "success") {
-                document.getElementById('draw-round').innerText = `제 ${data.drwNo}회`;
-                document.getElementById('draw-date').innerText = `(${data.drwNoDate})`;
-
-                const nums = [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6];
-                container.innerHTML = nums.map(n => `<div class="ball ${getRangeClass(n)}">${n}</div>`).join('');
-                container.innerHTML += `<span class="plus-sign">+</span>`;
-                container.innerHTML += `<div class="ball ${getRangeClass(data.bnusNo)}">${data.bnusNo}</div>`;
-            } else {
-                console.warn(`Lottery API returned non-success for round ${round}:`, data);
-                // 이번 주 데이터가 아직 없거나 success가 아니면 재시도
-                fetchLotto(offset + 1);
-            }
-        } catch (err) {
-            console.error(`Attempt ${offset + 1} failed for round ${round}:`, err);
-            fetchLotto(offset + 1);
-        }
+        // Wait for image to load
+        faceImage.onload = async function() {
+            await predict();
+            loadingContainer.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+        };
     };
-
-    fetchLotto(0);
+    reader.readAsDataURL(file);
 }
 
-function getRangeClass(n) {
-    if (n <= 10) return 'range-1';
-    if (n <= 20) return 'range-11';
-    if (n <= 30) return 'range-21';
-    if (n <= 40) return 'range-31';
-    return 'range-41';
+// Run the image through the model
+async function predict() {
+    if (!model) await init();
+    
+    const prediction = await model.predict(faceImage);
+    prediction.sort((a, b) => parseFloat(b.probability) - parseFloat(a.probability));
+
+    // Display Top Result
+    const topResult = prediction[0].className;
+    resultTitle.innerText = `당신은 '${topResult}'상 입니다!`;
+
+    // Display all results with bars
+    labelContainerElement.innerHTML = "";
+    for (let i = 0; i < maxPredictions; i++) {
+        const classPrediction = prediction[i].className;
+        const probability = (prediction[i].probability * 100).toFixed(0);
+        
+        const resultItem = document.createElement("div");
+        resultItem.className = "result-bar-wrapper";
+        resultItem.innerHTML = `
+            <span class="result-label">${classPrediction} (${probability}%)</span>
+            <div class="bar-container">
+                <div class="bar" style="width: ${probability}%"></div>
+            </div>
+        `;
+        labelContainerElement.appendChild(resultItem);
+    }
 }
 
-// 페이지 로드 시 실행
-window.addEventListener('DOMContentLoaded', initLatestLotto);
+// Event Listeners
+uploadBtn.addEventListener('click', () => imageInput.click());
+imageUploadArea.addEventListener('click', () => imageInput.click());
+imageInput.addEventListener('change', handleImageUpload);
+
+retryBtn.addEventListener('click', () => {
+    faceImage.src = "";
+    faceImage.classList.add('hidden');
+    uploadLabel.classList.remove('hidden');
+    resultContainer.classList.add('hidden');
+    imageInput.value = "";
+});
+
+// Drag and drop support
+imageUploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    imageUploadArea.style.backgroundColor = "#f0f0ff";
+});
+
+imageUploadArea.addEventListener('dragleave', () => {
+    imageUploadArea.style.backgroundColor = "#fdfdfd";
+});
+
+imageUploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    imageUploadArea.style.backgroundColor = "#fdfdfd";
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        imageInput.files = files;
+        handleImageUpload({ target: imageInput });
+    }
+});
+
+// Initialize model on load
+init();
